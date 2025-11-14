@@ -1,0 +1,2 @@
+MODELO,SISTEMA,CIRCUITO_CC,FUSIVEL,RELE,MODULO_ORIGEM,CONECTOR_ORIGEM,PINO_ORIGEM,CONECTOR_DESTINO,PINO_DESTINO,COMPONENTE,FUNCAO_DO_CIRCUITO,LOCAL_FISICO,OBS
+9770 STS,"Elétrico – Carga",CC007,VER_TM,VER_TM,"Chave Ignição","VER_DIAGRAMA","VER_DIAGRAMA","Conector alternador","D+/EXC","Alternador","Fornecer 12 V pós-chave para excitar o alternador na partida","Compartimento do motor, lado direito","Confirmar número do fusível, relé, conector e pino no manual elétrico."
