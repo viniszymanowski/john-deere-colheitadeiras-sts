@@ -54,13 +54,23 @@ if __name__ == "__main__":
 
     # percorre todos os arquivos da pasta
     for nome in os.listdir(PDF_DIR):
-        if nome.lower().endswith(".pdf"):
-            caminho = os.path.join(PDF_DIR, nome)
-            try:
-                registros = extrair_codigos(caminho)
-                todos.extend(registros)
-            except Exception as e:
-                print(f"Erro ao ler {nome}: {e}")
+    # só pega PDF
+    if not nome.lower().endswith(".pdf"):
+        continue
+
+    # aceleração: só processa PDFs que parecem ser de diagnóstico
+    nome_lower = nome.lower()
+    if "diagn" not in nome_lower:
+        # pule catálogos, calibração, conectores etc.
+        continue
+
+    caminho_pdf = os.path.join(PDF_DIR, nome)
+    try:
+        registros = extrair_codigos_de_um_pdf(caminho_pdf)
+        todos.extend(registros)
+    except Exception as e:
+        print(f"[AVISO] Erro ao ler {nome}: {e}")
+
 
     # salvar CSV
     campos = ["ARQUIVO", "MODULO", "CODIGO", "DESCRICAO", "PAGINA", "LINHA_BRUTA"]
