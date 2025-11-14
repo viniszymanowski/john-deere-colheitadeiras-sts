@@ -1,0 +1,8 @@
+SERIE          → ex.: STS70, S600
+MODELO         → ex.: 9470 STS, 9770 STS, S660, S670...
+MODULO         → ex.: CAB, LCU, HCC, RCU, ATC...
+CODIGO         → ex.: 123456.01
+DESCRICAO      → texto resumido do código
+ORIGEM_PDF     → nome do PDF de onde veio (pra referência)
+PAGINA         → número da página no PDF (se conseguir extrair)
+LINHA_BRUTA    → linha original do manual (pra você conferir no PDF)
