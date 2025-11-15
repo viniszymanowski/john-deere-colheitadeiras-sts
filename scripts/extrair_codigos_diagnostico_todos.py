@@ -1,58 +1,53 @@
 import os
 import re
 import csv
-from concurrent.futures import ThreadPoolExecutor
-
+import shutil
+import tempfile
 from pdf2image import convert_from_path
 import pytesseract
 
-# Pasta dos PDFs de diagnóstico
-PDF_DIR = os.path.join("..", "Manuals")
+# Caminho do Tesseract (Windows)
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# Arquivo de saída
-SAIDA_CSV = os.path.join("..", "data", "codigos_diagnostico_ocr.csv")
+# Pasta onde estão seus PDFs
+PDF_DIR = os.path.join("..", "Manuais Técnicos John Deere")
 
-# Padrão dos códigos (ex.: CAB 123456.01)
-PADRAO_CODIGO = re.compile(r"(CAB|LCU|HCC|ATC|RCU|SIV|HCM|ACM)\s+(\d{3,6}\.\d{2})")
+# Arquivo final
+SAIDA_CSV = os.path.join("..", "data", "codigos_diagnostico.csv")
 
+# Regex para localizar códigos (ajuste se necessário)
+PADRAO = re.compile(r"\b(CAB|LCU|HCC|ATC|RCU|HCM|SIV|ACM)\s+(\d{3,6}\.\d{2})\b")
 
-def ocr_pagina(img, num_pagina, nome_pdf):
-    """Roda OCR em 1 página e devolve códigos encontrados."""
-    texto = pytesseract.image_to_string(img)  # OCR
+def processar_pdf(caminho_pdf):
+    print(f"\nLENDO (TURBO): {os.path.basename(caminho_pdf)}")
     registros = []
 
-    for linha in texto.split("\n"):
-        m = PADRAO_CODIGO.search(linha)
-        if m:
-            registros.append({
-                "ARQUIVO": nome_pdf,
-                "MODULO": m.group(1),
-                "CODIGO": m.group(2),
-                "DESCRICAO": linha[m.end():].strip(),
-                "PAGINA": num_pagina,
-                "LINHA_BRUTA": linha,
-            })
+    # Cria pasta temporária para imagens
+    temp_dir = tempfile.mkdtemp()
 
-    return registros
+    # Converte PDF → imagens
+    try:
+        paginas = convert_from_path(caminho_pdf, dpi=300, output_folder=temp_dir)
+    except Exception as e:
+        print(f"Erro ao converter PDF: {e}")
+        return []
 
+    # OCR de cada página
+    for idx, img in enumerate(paginas, start=1):
+        texto = pytesseract.image_to_string(img, lang="por+eng")
+        for linha in texto.split("\n"):
+            m = PADRAO.search(linha)
+            if m:
+                registro = {
+                    "ARQUIVO": os.path.basename(caminho_pdf),
+                    "PAGINA": idx,
+                    "MODULO": m.group(1),
+                    "CODIGO": m.group(2),
+                    "LINHA_BRUTA": linha.strip()
+                }
+                registros.append(registro)
 
-def processar_pdf(pdf_path):
-    nome_pdf = os.path.basename(pdf_path)
-    print(f"\nOCR TURBO: {nome_pdf}")
-
-    # converte todas as páginas para imagem (usa Poppler)
-    imagens = convert_from_path(pdf_path, dpi=200)
-    registros = []
-
-    # OCR em paralelo nas páginas
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = []
-        for i, img in enumerate(imagens, start=1):
-            futures.append(pool.submit(ocr_pagina, img, i, nome_pdf))
-
-        for f in futures:
-            registros.extend(f.result())
-
+    shutil.rmtree(temp_dir)
     print(f"  -> {len(registros)} códigos encontrados")
     return registros
 
@@ -60,22 +55,26 @@ def processar_pdf(pdf_path):
 if __name__ == "__main__":
     todos = []
 
-    print("OCR TURBO EXTREMO em PDFs de diagnóstico...\n")
+    print("PROCURANDO PDFs DE DIAGNÓSTICO...\n")
 
-    # só pega PDFs com "diagn" no nome
     for nome in os.listdir(PDF_DIR):
-        if nome.lower().endswith(".pdf") and "diagn" in nome.lower():
-            caminho_pdf = os.path.join(PDF_DIR, nome)
-            todos.extend(processar_pdf(caminho_pdf))
+        if not nome.lower().endswith(".pdf"):
+            continue
 
-    # salva CSV
-    campos = ["ARQUIVO", "MODULO", "CODIGO", "DESCRICAO", "PAGINA", "LINHA_BRUTA"]
-    os.makedirs(os.path.dirname(SAIDA_CSV), exist_ok=True)
+        if "diagn" not in nome.lower():
+            continue  # só técnicos
+
+        caminho = os.path.join(PDF_DIR, nome)
+        todos.extend(processar_pdf(caminho))
+
+    # Salva CSV
+    campos = ["ARQUIVO", "PAGINA", "MODULO", "CODIGO", "LINHA_BRUTA"]
     with open(SAIDA_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=campos)
-        writer.writeheader()
-        writer.writerows(todos)
+        w = csv.DictWriter(f, fieldnames=campos)
+        w.writeheader()
+        for r in todos:
+            w.writerow(r)
 
-    print(f"\nTOTAL FINAL: {len(todos)} códigos")
-    print(f"CSV salvo em: {SAIDA_CSV}")
-    print("Concluído.")
+    print(f"\nTOTAL FINAL DE CÓDIGOS: {len(todos)}")
+    print(f"CSV SALVO EM: {SAIDA_CSV}")
+    print("\nCONCLUÍDO.")
